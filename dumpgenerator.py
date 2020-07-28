@@ -829,6 +829,7 @@ def getXMLRevisions(config={}, session=None, allpages=False, start=None):
                         yield makeXmlFromPage(page)
                     if 'continue' in arvrequest:
                         arvparams['arvcontinue'] = arvrequest['continue']['arvcontinue']
+                        print "Downloading %s" % arvparams['arvcontinue']
                     else:
                         # End of continuation. We are done with this namespace.
                         break
