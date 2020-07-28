@@ -398,7 +398,7 @@ def getImageNames(config={}, session=None):
     images = []
     if 'api' in config and config['api']:
         images = getImageNamesAPI(config=config, session=session)
-    elif 'index' in config and config['index']:
+    elif 'indejx' in config and config['index']:
         images = getImageNamesScraper(config=config, session=session)
 
     # images = list(set(images)) # it is a list of lists
@@ -798,7 +798,7 @@ def getXMLRevisions(config={}, session=None, allpages=False, start=None):
             arvparams = {
                 'action': 'query',
                 'list': 'allrevisions',
-                'arvlimit': 50,
+                'arvlimit': 500,
                 'arvnamespace': namespace
             }
             if not config['curonly']:
@@ -1079,7 +1079,9 @@ def makeXmlFromPage(page):
                 revision.append(E.sha1(rev['sha1']))
             p.append(revision)
     except KeyError as e:
-        print(e)
+        print(page)
+        import traceback
+        traceback.print_exc()
         raise PageMissingError(page['title'], e)
     return etree.tostring(p, pretty_print=True, encoding='unicode')
 
@@ -1219,7 +1221,7 @@ def getImageNamesScraper(config={}, session=None):
     r_next = r'(?<!&amp;dir=prev)&amp;offset=(?P<offset>\d+)&amp;'
     images = []
     offset = '29990101000000'  # january 1, 2999
-    limit = 5000
+    limit = 500
     retries = config['retries']
     while offset:
         # 5000 overload some servers, but it is needed for sites like this with
@@ -1330,7 +1332,7 @@ def getImageNamesAPI(config={}, session=None):
             'aiprop': 'url|user',
             'aifrom': aifrom,
             'format': 'json',
-            'ailimit': 50}
+            'ailimit': 500}
         # FIXME Handle HTTP Errors HERE
         r = session.get(url=config['api'], params=params, timeout=30)
         handleStatusCode(r)
@@ -1352,7 +1354,7 @@ def getImageNamesAPI(config={}, session=None):
                     aifrom = jsonimages['continue']['aicontinue']
                 elif 'aifrom' in jsonimages['continue']:
                     aifrom = jsonimages['continue']['aifrom']
-            # print aifrom
+            print aifrom
 
             for image in jsonimages['query']['allimages']:
                 url = image['url']
@@ -1442,32 +1444,39 @@ def undoHTMLEntities(text=''):
 from multiprocessing.pool import ThreadPool
 
 def download_pic_meta(config, session, filename, imagepath, filename2):
-    # saving description if any
-    try:
-        title = u'Image:%s' % (filename)
-        if config['xmlrevisions'] and config['api'] and config['api'].endswith("api.php"):
-            r = session.get(config['api'] + u"?action=query&export&exportnowrap&titles=%s" % title)
-            xmlfiledesc = r.text
-        else:
-            xmlfiledesc = getXMLFileDesc(
-                config=config,
-                title=title,
-                session=session)  # use Image: for backwards compatibility
-    except PageMissingError:
-        xmlfiledesc = ''
-        logerror(
-            config=config,
-            text=u'The page "%s" was missing in the wiki (probably deleted)' % (title.decode('utf-8'))
-        )
+    while True:
+        try:
+            # saving description if any
+            try:
+                title = u'Image:%s' % (filename)
+                if config['xmlrevisions'] and config['api'] and config['api'].endswith("api.php"):
+                    r = session.get(config['api'] + u"?action=query&export&exportnowrap&titles=%s" % title)
+                    xmlfiledesc = r.text
+                else:
+                    xmlfiledesc = getXMLFileDesc(
+                        config=config,
+                        title=title,
+                        session=session)  # use Image: for backwards compatibility
+            except PageMissingError:
+                xmlfiledesc = ''
+                logerror(
+                    config=config,
+                    text=u'The page "%s" was missing in the wiki (probably deleted)' % (title.decode('utf-8'))
+                )
 
-    f = open('%s/%s.desc' % (imagepath, filename2), 'w')
-    f.write(filename.encode('utf-8') + "\n\n\n")
-    # <text xml:space="preserve" bytes="36">Banner featuring SG1, SGA, SGU teams</text>
-    if not re.search(r'</mediawiki>', xmlfiledesc):
-        # failure when retrieving desc? then save it as empty .desc
-        xmlfiledesc = ''
-    f.write(xmlfiledesc.encode('utf-8'))
-    f.close()
+            f = open('%s/%s.desc' % (imagepath, filename2), 'w')
+            f.write(filename.encode('utf-8') + "\n\n\n")
+            # <text xml:space="preserve" bytes="36">Banner featuring SG1, SGA, SGU teams</text>
+            if not re.search(r'</mediawiki>', xmlfiledesc):
+                # failure when retrieving desc? then save it as empty .desc
+                xmlfiledesc = ''
+            f.write(xmlfiledesc.encode('utf-8'))
+            f.close()
+        except:
+            import traceback
+            traceback.print_exc()
+            continue
+        break
 
 def generateImageDump(config={}, other={}, images=[], start='', session=None):
     """ Save files and descriptions using a file list """
@@ -1501,7 +1510,7 @@ def generateImageDump(config={}, other={}, images=[], start='', session=None):
                 filename2 = truncateFilename(other=other, filename=filename2)
                 print 'Filename is too long, truncating. Now it is:', filename2
             filename3 = u'%s/%s' % (imagepath, filename2)
-            imagelist.write(("%s|%s" % (filename3, url)).encode('utf-8'))
+            imagelist.write(("%s|%s\n" % (filename3, url)).encode('utf-8'))
             '''
             imagefile = open(filename3, 'wb')
             r = requests.get(url=url)
@@ -1516,7 +1525,7 @@ def generateImageDump(config={}, other={}, images=[], start='', session=None):
 
         print 'Downloaded %d images' % (c)
 
-    th = ThreadPool(100)
+    th = ThreadPool(50)
     def helper(args):
         return download_pic_meta(*args)
     i = 0
