@@ -724,13 +724,16 @@ def generateXMLDump(config={}, titles=[], start=None, session=None):
             xmlfile.write(header.encode('utf-8'))
         try:
             r_timestamp = r'<timestamp>([^<]+)</timestamp>'
+            retrevs = 0
             for xml in getXMLRevisions(config=config, session=session, start=start):
                 numrevs = len(re.findall(r_timestamp, xml))
                 # Due to how generators work, it's expected this may be less
                 # TODO: get the page title and reuse the usual format "X title, y edits"
-                print "        %d more revisions exported" % numrevs
+                #print "        %d more revisions exported" % numrevs
+                retrevs += numrevs
                 xml = cleanXML(xml=xml)
                 xmlfile.write(xml.encode('utf-8'))
+            print "        %d more revisions exported" % retrevs
         except AttributeError as e:
             print(e)
             print "This API library version is not working"
@@ -807,6 +810,7 @@ def getXMLRevisions(config={}, session=None, allpages=False, start=None):
                 with open(config['path'] + "/arv_progress") as f:
                     arvcontinue = f.read()
                     arvparams['arvcontinue'] = arvcontinue.strip()
+                    print("Start download from %s" % arvparams['arvcontinue'])
 
             if not config['curonly']:
                 # We have to build the XML manually...
