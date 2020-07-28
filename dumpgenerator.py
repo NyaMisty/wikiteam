@@ -1465,6 +1465,7 @@ def generateImageDump(config={}, other={}, images=[], start='', session=None):
             # truncate filename if length > 100 (100 + 32 (md5) = 132 < 143 (crash
             # limit). Later .desc is added to filename, so better 100 as max)
             orifilename = filename2 = urllib.unquote(filename)
+            filename2 = filename2.replace('/', '_')
             if len(filename2) > other['filenamelimit']:
                 # split last . (extension) and then merge
                 filename2 = truncateFilename(other=other, filename=filename2)
