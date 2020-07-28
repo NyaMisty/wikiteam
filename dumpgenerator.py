@@ -1439,12 +1439,42 @@ def undoHTMLEntities(text=''):
 
     return text
 
+from multiprocessing.pool import ThreadPool
+
+def download_pic_meta(config, session, filename, imagepath, filename2):
+    # saving description if any
+    try:
+        title = u'Image:%s' % (filename)
+        if config['xmlrevisions'] and config['api'] and config['api'].endswith("api.php"):
+            r = session.get(config['api'] + u"?action=query&export&exportnowrap&titles=%s" % title)
+            xmlfiledesc = r.text
+        else:
+            xmlfiledesc = getXMLFileDesc(
+                config=config,
+                title=title,
+                session=session)  # use Image: for backwards compatibility
+    except PageMissingError:
+        xmlfiledesc = ''
+        logerror(
+            config=config,
+            text=u'The page "%s" was missing in the wiki (probably deleted)' % (title.decode('utf-8'))
+        )
+
+    f = open('%s/%s.desc' % (imagepath, filename2), 'w')
+    f.write(filename.encode('utf-8') + "\n\n\n")
+    # <text xml:space="preserve" bytes="36">Banner featuring SG1, SGA, SGU teams</text>
+    if not re.search(r'</mediawiki>', xmlfiledesc):
+        # failure when retrieving desc? then save it as empty .desc
+        xmlfiledesc = ''
+    f.write(xmlfiledesc.encode('utf-8'))
+    f.close()
+
 def generateImageDump(config={}, other={}, images=[], start='', session=None):
     """ Save files and descriptions using a file list """
-
     # fix use subdirectories md5
     print 'Retrieving images from "%s"' % (start and start or 'start')
     with open(config['path'] + "/imagelist", 'w') as imagelist:
+        args = []
         imagepath = '%s/images' % (config['path'])
         if not os.path.isdir(imagepath):
             print 'Creating "%s" directory' % (imagepath)
@@ -1478,38 +1508,22 @@ def generateImageDump(config={}, other={}, images=[], start='', session=None):
             imagefile.write(r.content)
             imagefile.close()
             '''
-            # saving description if any
-            try:
-                title = u'Image:%s' % (filename)
-                if config['xmlrevisions'] and config['api'] and config['api'].endswith("api.php"):
-                    r = session.get(config['api'] + u"?action=query&export&exportnowrap&titles=%s" % title)
-                    xmlfiledesc = r.text
-                else:
-                    xmlfiledesc = getXMLFileDesc(
-                        config=config,
-                        title=title,
-                        session=session)  # use Image: for backwards compatibility
-            except PageMissingError:
-                xmlfiledesc = ''
-                logerror(
-                    config=config,
-                    text=u'The page "%s" was missing in the wiki (probably deleted)' % (title.decode('utf-8'))
-                )
-
-            f = open('%s/%s.desc' % (imagepath, filename2), 'w')
-            f.write(orifilename.encode('utf-8') + "\n\n\n")
-            # <text xml:space="preserve" bytes="36">Banner featuring SG1, SGA, SGU teams</text>
-            if not re.search(r'</mediawiki>', xmlfiledesc):
-                # failure when retrieving desc? then save it as empty .desc
-                xmlfiledesc = ''
-            f.write(xmlfiledesc.encode('utf-8'))
-            f.close()
+            args.append((config, session, filename, imagepath, filename2))
             delay(config=config, session=session)
             c += 1
             if c % 10 == 0:
                 print '    Downloaded %d images' % (c)
 
         print 'Downloaded %d images' % (c)
+
+    th = ThreadPool(100)
+    def helper(args):
+        return download_pic_meta(*args)
+    i = 0
+    for c in th.imap_unordered(helper, args):
+        i += 1
+        if i % 10 == 0:
+            print '    Downloaded %d images' % (i)
 
 
 def saveLogs(config={}, session=None):
