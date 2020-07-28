@@ -1458,6 +1458,8 @@ def undoHTMLEntities(text=''):
 from multiprocessing.pool import ThreadPool
 
 def download_pic_meta(config, session, filename, imagepath, filename2):
+    if os.path.exists('%s/%s.desc' % (imagepath, filename2)):
+        return
     while True:
         try:
             # saving description if any
