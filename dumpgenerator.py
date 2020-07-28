@@ -503,7 +503,7 @@ def getUserAgent():
     return useragents[0]
 
 
-def logerror(config={}, text=''):
+def logerror(config={}, text=u''):
     """ Log error in file """
     if text:
         with open('%s/errors.log' % (config['path']), 'a') as outfile:
@@ -971,7 +971,7 @@ def getXMLRevisions(config={}, session=None, allpages=False, start=None):
                     if e.response.status_code == 405 and config['http_method'] == "POST":
                         print("POST request to the API failed, retrying with GET")
                         config['http_method'] = "GET"
-                        exportrequest = site.api(http_method=config['http_method'], **exportparams)
+                        prequest = site.api(http_method=config['http_method'], **pparams)
                 except mwclient.errors.InvalidResponse:
                     logerror(
                                 config=config,
@@ -1008,7 +1008,7 @@ def getXMLRevisions(config={}, session=None, allpages=False, start=None):
                     if 'continue' in prequest.keys():
                         print("Getting more revisions for the page")
                         for key, value in prequest['continue']:
-                            params[key] = value
+                            pparams[key] = value
                     elif 'query-continue' in prequest.keys():
                         rvstartid = prequest['query-continue']['revisions']['rvstartid']
                         pparams['rvstartid'] = rvstartid
@@ -1439,72 +1439,76 @@ def undoHTMLEntities(text=''):
 
     return text
 
-
 def generateImageDump(config={}, other={}, images=[], start='', session=None):
     """ Save files and descriptions using a file list """
 
     # fix use subdirectories md5
     print 'Retrieving images from "%s"' % (start and start or 'start')
-    imagepath = '%s/images' % (config['path'])
-    if not os.path.isdir(imagepath):
-        print 'Creating "%s" directory' % (imagepath)
-        os.makedirs(imagepath)
+    with open(config['path'] + "/imagelist", 'w') as imagelist:
+        imagepath = '%s/images' % (config['path'])
+        if not os.path.isdir(imagepath):
+            print 'Creating "%s" directory' % (imagepath)
+            os.makedirs(imagepath)
 
-    c = 0
-    lock = True
-    if not start:
-        lock = False
-    for filename, url, uploader in images:
-        if filename == start:  # start downloading from start (included)
+        c = 0
+        lock = True
+        if not start:
             lock = False
-        if lock:
-            continue
-        delay(config=config, session=session)
+        for filename, url, uploader in images:
+            if filename == start:  # start downloading from start (included)
+                lock = False
+            if lock:
+                continue
+            delay(config=config, session=session)
 
-        # saving file
-        # truncate filename if length > 100 (100 + 32 (md5) = 132 < 143 (crash
-        # limit). Later .desc is added to filename, so better 100 as max)
-        filename2 = urllib.unquote(filename)
-        if len(filename2) > other['filenamelimit']:
-            # split last . (extension) and then merge
-            filename2 = truncateFilename(other=other, filename=filename2)
-            print 'Filename is too long, truncating. Now it is:', filename2
-        filename3 = u'%s/%s' % (imagepath, filename2)
-        imagefile = open(filename3, 'wb')
-        r = requests.get(url=url)
-        imagefile.write(r.content)
-        imagefile.close()
-        # saving description if any
-        try:
-            title = u'Image:%s' % (filename)
-            if config['xmlrevisions'] and config['api'] and config['api'].endswith("api.php"):
-                r = session.get(config['api'] + u"?action=query&export&exportnowrap&titles=%s" % title)
-                xmlfiledesc = r.text
-            else:
-                xmlfiledesc = getXMLFileDesc(
+            # saving file
+            # truncate filename if length > 100 (100 + 32 (md5) = 132 < 143 (crash
+            # limit). Later .desc is added to filename, so better 100 as max)
+            orifilename = filename2 = urllib.unquote(filename)
+            if len(filename2) > other['filenamelimit']:
+                # split last . (extension) and then merge
+                filename2 = truncateFilename(other=other, filename=filename2)
+                print 'Filename is too long, truncating. Now it is:', filename2
+            filename3 = u'%s/%s' % (imagepath, filename2)
+            imagelist.write("%s|%s" % (filename3, url))
+            '''
+            imagefile = open(filename3, 'wb')
+            r = requests.get(url=url)
+            imagefile.write(r.content)
+            imagefile.close()
+            '''
+            # saving description if any
+            try:
+                title = u'Image:%s' % (filename)
+                if config['xmlrevisions'] and config['api'] and config['api'].endswith("api.php"):
+                    r = session.get(config['api'] + u"?action=query&export&exportnowrap&titles=%s" % title)
+                    xmlfiledesc = r.text
+                else:
+                    xmlfiledesc = getXMLFileDesc(
+                        config=config,
+                        title=title,
+                        session=session)  # use Image: for backwards compatibility
+            except PageMissingError:
+                xmlfiledesc = ''
+                logerror(
                     config=config,
-                    title=title,
-                    session=session)  # use Image: for backwards compatibility
-        except PageMissingError:
-            xmlfiledesc = ''
-            logerror(
-                config=config,
-                text=u'The page "%s" was missing in the wiki (probably deleted)' % (title.decode('utf-8'))
-            )
+                    text=u'The page "%s" was missing in the wiki (probably deleted)' % (title.decode('utf-8'))
+                )
 
-        f = open('%s/%s.desc' % (imagepath, filename2), 'w')
-        # <text xml:space="preserve" bytes="36">Banner featuring SG1, SGA, SGU teams</text>
-        if not re.search(r'</mediawiki>', xmlfiledesc):
-            # failure when retrieving desc? then save it as empty .desc
-            xmlfiledesc = ''
-        f.write(xmlfiledesc.encode('utf-8'))
-        f.close()
-        delay(config=config, session=session)
-        c += 1
-        if c % 10 == 0:
-            print '    Downloaded %d images' % (c)
+            f = open('%s/%s.desc' % (imagepath, filename2), 'w')
+            f.write(orifilename.encode('utf-8') + "\n\n\n")
+            # <text xml:space="preserve" bytes="36">Banner featuring SG1, SGA, SGU teams</text>
+            if not re.search(r'</mediawiki>', xmlfiledesc):
+                # failure when retrieving desc? then save it as empty .desc
+                xmlfiledesc = ''
+            f.write(xmlfiledesc.encode('utf-8'))
+            f.close()
+            delay(config=config, session=session)
+            c += 1
+            if c % 10 == 0:
+                print '    Downloaded %d images' % (c)
 
-    print 'Downloaded %d images' % (c)
+        print 'Downloaded %d images' % (c)
 
 
 def saveLogs(config={}, session=None):
