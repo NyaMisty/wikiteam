@@ -794,6 +794,7 @@ def getXMLRevisions(config={}, session=None, allpages=False, start=None):
     try:
         for namespace in namespaces:
             print("Trying to export all revisions from namespace %s" % namespace)
+
             # arvgeneratexml exists but was deprecated in 1.26 (while arv is from 1.27?!)
             arvparams = {
                 'action': 'query',
@@ -801,6 +802,12 @@ def getXMLRevisions(config={}, session=None, allpages=False, start=None):
                 'arvlimit': 500,
                 'arvnamespace': namespace
             }
+
+            if os.path.exists(config['path'] + "/arv_progress"):
+                with open(config['path'] + "/arv_progress") as f:
+                    arvcontinue = f.read()
+                    arvparams['arvcontinue'] = arvcontinue.strip()
+
             if not config['curonly']:
                 # We have to build the XML manually...
                 # Skip flags, presumably needed to add <minor/> which is in the schema.
@@ -829,6 +836,8 @@ def getXMLRevisions(config={}, session=None, allpages=False, start=None):
                         yield makeXmlFromPage(page)
                     if 'continue' in arvrequest:
                         arvparams['arvcontinue'] = arvrequest['continue']['arvcontinue']
+                        with open(config['path'] + "/arv_progress", 'w') as f:
+                            f.write(arvparams['arvcontinue'])
                         print "Downloading %s" % arvparams['arvcontinue']
                     else:
                         # End of continuation. We are done with this namespace.
