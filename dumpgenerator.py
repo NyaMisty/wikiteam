@@ -1471,7 +1471,7 @@ def generateImageDump(config={}, other={}, images=[], start='', session=None):
                 filename2 = truncateFilename(other=other, filename=filename2)
                 print 'Filename is too long, truncating. Now it is:', filename2
             filename3 = u'%s/%s' % (imagepath, filename2)
-            imagelist.write("%s|%s" % (filename3, url))
+            imagelist.write(("%s|%s" % (filename3, url)).encode('utf-8'))
             '''
             imagefile = open(filename3, 'wb')
             r = requests.get(url=url)
