@@ -1068,11 +1068,18 @@ def makeXmlFromPage(page):
                 size = rev['size']
             else:
                 size = 0
-            revision = E.revision(
-                E.id(to_unicode(rev['revid'])),
-                E.timestamp(rev['timestamp']),
-                E.text(to_unicode(rev['*']), space="preserve", bytes=to_unicode(size)),
-            )
+            if not '*' in rev:
+                revision = E.revision(
+                    E.id(to_unicode(rev['revid'])),
+                    E.timestamp(rev['timestamp']),
+                    E.text(to_unicode("")),
+                )
+            else:
+                revision = E.revision(
+                    E.id(to_unicode(rev['revid'])),
+                    E.timestamp(rev['timestamp']),
+                    E.text(to_unicode(rev['*']), space="preserve", bytes=to_unicode(size)),
+                )
             # The username may be deleted/suppressed
             if 'user' in rev:
                 revision.append(E.contributor(
