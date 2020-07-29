@@ -1074,6 +1074,7 @@ def makeXmlFromPage(page):
                     E.timestamp(rev['timestamp']),
                     E.text(to_unicode("")),
                 )
+                print("Got hidden revision %s" % rev)
             else:
                 revision = E.revision(
                     E.id(to_unicode(rev['revid'])),
