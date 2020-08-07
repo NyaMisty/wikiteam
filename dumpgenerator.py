@@ -259,6 +259,7 @@ def getPageTitlesAPI(config={}, session=None):
         print '    Retrieving titles in the namespace %d' % (namespace)
         apiurl = urlparse(config['api'])
         site = mwclient.Site(apiurl.netloc, apiurl.path.replace("api.php", ""), scheme=apiurl.scheme)
+
         for page in site.allpages(namespace=namespace):
             title = page.name
             titles.append(title)
@@ -497,8 +498,9 @@ def getUserAgent():
     """ Return a cool user-agent to hide Python user-agent """
     useragents = [
         # firefox
-        'Mozilla/5.0 (X11; Linux x86_64; rv:72.0) Gecko/20100101 Firefox/72.0',
-        'Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/68.0',
+        #'Mozilla/5.0 (X11; Linux x86_64; rv:72.0) Gecko/20100101 Firefox/72.0',
+        #'Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/68.0',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36'
     ]
     return useragents[0]
 
@@ -1107,9 +1109,10 @@ def makeXmlFromPage(page):
         raise PageMissingError(page['title'], e)
     return etree.tostring(p, pretty_print=True, encoding='unicode')
 
+
 def readTitles(config={}, start=None, batch=False):
     """ Read title list from a file, from the title "start" """
-
+    return
     titlesfilename = '%s-%s-titles.txt' % (
         domain2prefix(config=config), config['date'])
     titlesfile = open('%s/%s' % (config['path'], titlesfilename), 'r')
@@ -1549,6 +1552,7 @@ def generateImageDump(config={}, other={}, images=[], start='', session=None):
 
         print 'Downloaded %d images' % (c)
 
+    '''
     th = ThreadPool(50)
     def helper(args):
         return download_pic_meta(*args)
@@ -1556,7 +1560,7 @@ def generateImageDump(config={}, other={}, images=[], start='', session=None):
     for c in th.imap_unordered(helper, args):
         i += 1
         if i % 10 == 0:
-            print '    Downloaded %d images' % (i)
+            print '    Downloaded %d images' % (i)'''
 
 
 def saveLogs(config={}, session=None):
@@ -1662,6 +1666,22 @@ def bye():
     print "If this is a public wiki, please, consider publishing this dump. Do it yourself as explained in https://github.com/WikiTeam/wikiteam/wiki/Tutorial#Publishing_the_dump or contact us at https://github.com/WikiTeam/wikiteam"
     print "Good luck! Bye!"
 
+def initSession(session):
+    try:
+        from requests.packages.urllib3.util.retry import Retry
+        from requests.adapters import HTTPAdapter
+        # Courtesy datashaman https://stackoverflow.com/a/35504626
+        __retries__ = Retry(connect=5, read=100,
+                        backoff_factor=2,
+                        status_forcelist=[500, 502, 503, 504])
+        session.mount('https://', HTTPAdapter(max_retries=__retries__))
+        session.mount('http://', HTTPAdapter(max_retries=__retries__))
+    except:
+        # Our urllib3/requests is too old
+        print "Failed to setup retry"
+        pass
+    session.headers.update({'User-Agent': getUserAgent()})
+    #session.keep_alive = False
 
 def getParameters(params=[]):
     if not params:
@@ -1778,20 +1798,25 @@ def getParameters(params=[]):
         print 'Using cookies from %s' % args.cookies
 
     session = requests.Session()
+    '''
     try:
         from requests.packages.urllib3.util.retry import Retry
         from requests.adapters import HTTPAdapter
         # Courtesy datashaman https://stackoverflow.com/a/35504626
-        __retries__ = Retry(total=5,
+        __retries__ = Retry(connect=5, read=100,
                         backoff_factor=2,
                         status_forcelist=[500, 502, 503, 504])
         session.mount('https://', HTTPAdapter(max_retries=__retries__))
         session.mount('http://', HTTPAdapter(max_retries=__retries__))
     except:
         # Our urllib3/requests is too old
+        print "Failed to setup retry"
         pass
-    session.cookies = cj
     session.headers.update({'User-Agent': getUserAgent()})
+    '''
+    initSession(session)
+    session.cookies = cj
+    #session.keep_alive = False
     if args.user and args.password:
         session.auth = (args.user, args.password)
 
@@ -2134,8 +2159,9 @@ def createNewDump(config={}, other={}):
     images = []
     print 'Trying generating a new dump into a new directory...'
     if config['xml']:
-        getPageTitles(config=config, session=other['session'])
-        titles=readTitles(config)
+        #getPageTitles(config=config, session=other['session'])
+        #titles=readTitles(config)
+        titles = []
         generateXMLDump(config=config, titles=titles, session=other['session'])
         checkXMLIntegrity(
             config=config,
@@ -2176,7 +2202,7 @@ def resumePreviousDump(config={}, other={}):
             print 'Title list is incomplete. Reloading...'
             # do not resume, reload, to avoid inconsistences, deleted pages or
             # so
-            getPageTitles(config=config, session=other['session'])
+            #getPageTitles(config=config, session=other['session'])
 
         # checking xml dump
         xmliscomplete = False
