@@ -810,8 +810,8 @@ def getXMLRevisions(config={}, session=None, allpages=False, start=None):
                 'arvnamespace': namespace
             }
 
-            if os.path.exists(config['path'] + "/arv_progress"):
-                with open(config['path'] + "/arv_progress") as f:
+            if os.path.exists(config['path'] + "/arv_progress" + namespace):
+                with open(config['path'] + "/arv_progress" + namespace) as f:
                     arvcontinue = f.read()
                     arvparams['arvcontinue'] = arvcontinue.strip()
                     print("Start download from %s" % arvparams['arvcontinue'])
