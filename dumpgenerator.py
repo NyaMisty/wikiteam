@@ -259,6 +259,7 @@ def getPageTitlesAPI(config={}, session=None):
         print '    Retrieving titles in the namespace %d' % (namespace)
         apiurl = urlparse(config['api'])
         site = mwclient.Site(apiurl.netloc, apiurl.path.replace("api.php", ""), scheme=apiurl.scheme)
+        initSession(site.connection)
 
         for page in site.allpages(namespace=namespace):
             title = page.name
@@ -790,6 +791,7 @@ def getXMLRevisions(config={}, session=None, allpages=False, start=None):
     # FIXME: force the protocol we asked for! Or don't verify SSL if we asked HTTP?
     # https://github.com/WikiTeam/wikiteam/issues/358
     site = mwclient.Site(apiurl.netloc, apiurl.path.replace("api.php", ""), scheme=apiurl.scheme)
+    initSession(site.connection)
 
     if not 'all' in config['namespaces']:
         namespaces = config['namespaces']
@@ -804,7 +806,7 @@ def getXMLRevisions(config={}, session=None, allpages=False, start=None):
             arvparams = {
                 'action': 'query',
                 'list': 'allrevisions',
-                'arvlimit': 500,
+                'arvlimit': 50,
                 'arvnamespace': namespace
             }
 
@@ -1945,7 +1947,7 @@ def getParameters(params=[]):
         'date': datetime.datetime.now().strftime('%Y%m%d'),
         'api': api,
         'failfast': args.failfast,
-        'http_method': "POST",
+        'http_method': "GET",
         'index': index,
         'images': args.images,
         'logs': False,
