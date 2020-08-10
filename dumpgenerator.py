@@ -799,15 +799,16 @@ def getXMLRevisions(config={}, session=None, allpages=False, start=None):
         namespaces, namespacenames = getNamespacesAPI(config=config, session=session)
 
     try:
-        for namespace in namespaces:
+        #for namespace in namespaces:
+        for namespace in [""]:
             print("Trying to export all revisions from namespace %s" % namespace)
 
             # arvgeneratexml exists but was deprecated in 1.26 (while arv is from 1.27?!)
             arvparams = {
                 'action': 'query',
                 'list': 'allrevisions',
-                'arvlimit': 50,
-                'arvnamespace': namespace
+                'arvlimit': 500,
+                #'arvnamespace': namespace
             }
 
             if os.path.exists(config['path'] + "/arv_progress" + str(namespace)):
